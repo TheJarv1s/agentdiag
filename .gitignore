@@ -1,0 +1,4 @@
+/dist/
+*.exe
+*.out
+coverage.out
