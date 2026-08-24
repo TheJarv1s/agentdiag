@@ -8,7 +8,7 @@ import (
 	"github.com/TheJarv1s/agentdiag/internal/model"
 )
 
-const Version = "0.1.0"
+const Version = "0.1.1"
 
 type Options struct {
 	Project     string

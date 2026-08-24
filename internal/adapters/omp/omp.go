@@ -124,7 +124,9 @@ func scanConfig(path, label string, findings *[]model.Finding) {
 	}
 	cfg, err := fsx.LoadYAML(path)
 	if err != nil {
-		*findings = append(*findings, finding("omp.config_invalid", model.SeverityError, label+" could not be parsed.", path, "Repair the YAML configuration.", false))
+		f := finding("omp.config_unparsed", model.SeverityWarning, "AgentDiag could not fully parse "+label+" with its lightweight compatibility parser; this does not prove the config is invalid.", path, "Validate the configuration with OMP; AgentDiag will skip checks that depend on parsed values.", false)
+		f.Confidence = model.ConfidencePossible
+		*findings = append(*findings, f)
 		return
 	}
 	for _, keyPath := range fsx.SecretKeyPaths(cfg) {
@@ -152,7 +154,7 @@ func scanSkillRoot(root, source string, managed bool, findings *[]model.Finding)
 	for _, path := range direct {
 		meta, err := fsx.ParseSkill(path)
 		if err != nil {
-			*findings = append(*findings, finding("omp.skill_invalid", model.SeverityWarning, "An OMP SKILL.md has invalid frontmatter.", path, "Repair the YAML frontmatter.", false))
+			*findings = append(*findings, finding("omp.skill_unreadable", model.SeverityWarning, "An OMP SKILL.md could not be read.", path, "Check filesystem permissions and file encoding.", false))
 			continue
 		}
 		if strings.TrimSpace(meta.Description) == "" {
@@ -228,7 +230,7 @@ func scanMarketplaceRegistry(path string, findings *[]model.Finding) {
 }
 
 func finding(id string, sev model.Severity, msg, path, remediation string, security bool) model.Finding {
-	return model.Finding{ID: id, Severity: sev, Message: msg, Path: path, Remediation: remediation, Security: security}
+	return model.Finding{ID: id, Severity: sev, Confidence: model.ConfidenceConfirmed, Message: msg, Path: path, Remediation: remediation, Security: security}
 }
 func severityRank(s model.Severity) int {
 	switch s {

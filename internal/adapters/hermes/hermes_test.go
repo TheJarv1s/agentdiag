@@ -3,7 +3,10 @@ package hermes
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/TheJarv1s/agentdiag/internal/model"
 )
 
 func writeFile(t *testing.T, path, body string) {
@@ -87,5 +90,58 @@ func TestPermissionCheckPlatformGate(t *testing.T) {
 	}
 	if !permissionCheckEnabled("linux") || !permissionCheckEnabled("darwin") {
 		t.Fatal("expected Unix permission checks")
+	}
+}
+
+func TestScanHermesIgnoresExcludedAndSupportSkillCopies(t *testing.T) {
+	home := t.TempDir()
+	writeFile(t, filepath.Join(home, "config.yaml"), "model:\n  max_tokens: 32768\n")
+	writeFile(t, filepath.Join(home, "skills", "media", "youtube-content", "SKILL.md"), "---\nname: youtube-content\n---\n")
+	writeFile(t, filepath.Join(home, "skills", ".archive", "youtube-content", "SKILL.md"), "---\nname: youtube-content\n---\n")
+	writeFile(t, filepath.Join(home, "skills", "media", "youtube-content", "references", "old-package", "SKILL.md"), "---\nname: youtube-content\n---\n")
+
+	r := Scan(Options{Home: home})
+	if len(r.Skills) != 1 {
+		t.Fatalf("skills=%d %+v", len(r.Skills), r.Skills)
+	}
+	for _, f := range r.Findings {
+		if f.ID == "config.literal_secret" || f.ID == "hermes.skill_duplicate" {
+			t.Fatalf("unexpected false positive: %+v", f)
+		}
+	}
+}
+
+func TestScanHermesIncludesExternalSkillDirs(t *testing.T) {
+	home := t.TempDir()
+	external := filepath.Join(home, "shared-skills")
+	writeFile(t, filepath.Join(home, "config.yaml"), "skills:\n  external_dirs:\n    - shared-skills\n")
+	writeFile(t, filepath.Join(home, "skills", "local", "SKILL.md"), "---\nname: local\n---\n")
+	writeFile(t, filepath.Join(external, "external", "SKILL.md"), "---\nname: external\n---\n")
+
+	r := Scan(Options{Home: home})
+	if len(r.Skills) != 2 {
+		t.Fatalf("skills=%d %+v", len(r.Skills), r.Skills)
+	}
+	if r.Skills[0].Source != "local" || r.Skills[1].Source != "external" {
+		t.Fatalf("expected source labels, got %+v", r.Skills)
+	}
+}
+
+func TestScanHermesDoesNotCallUnsupportedYAMLInvalid(t *testing.T) {
+	home := t.TempDir()
+	writeFile(t, filepath.Join(home, "config.yaml"), "notes: >\n  valid YAML block scalar\n  that the lightweight parser does not implement\n")
+
+	r := Scan(Options{Home: home})
+	var foundPossible bool
+	for _, f := range r.Findings {
+		if f.ID == "hermes.config_invalid" || (f.Severity == "error" && strings.Contains(f.ID, "config")) {
+			t.Fatalf("unsupported YAML must not be reported as confirmed invalid: %+v", f)
+		}
+		if f.ID == "hermes.config_unparsed" && f.Confidence == model.ConfidencePossible {
+			foundPossible = true
+		}
+	}
+	if !foundPossible {
+		t.Fatalf("expected conservative unparsed finding, got %+v", r.Findings)
 	}
 }

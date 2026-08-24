@@ -71,7 +71,7 @@ func renderTerminal(r model.Report) []byte {
 		} else {
 			fmt.Fprintf(&b, "  Findings: %d\n", len(a.Findings))
 			for _, f := range a.Findings {
-				fmt.Fprintf(&b, "    [%s] %s: %s", strings.ToUpper(string(f.Severity)), f.ID, f.Message)
+				fmt.Fprintf(&b, "    [%s] %s: %s", terminalFindingLabel(f), f.ID, f.Message)
 				if f.Path != "" {
 					fmt.Fprintf(&b, " (%s)", f.Path)
 				}
@@ -114,7 +114,7 @@ func renderMarkdown(r model.Report) []byte {
 		findings := append([]model.Finding(nil), a.Findings...)
 		sort.SliceStable(findings, func(i, j int) bool { return severityRank(findings[i].Severity) > severityRank(findings[j].Severity) })
 		for _, f := range findings {
-			fmt.Fprintf(&b, "- **%s — `%s`**: %s", strings.ToUpper(string(f.Severity)), f.ID, f.Message)
+			fmt.Fprintf(&b, "- **%s — `%s`**: %s", markdownFindingLabel(f), f.ID, f.Message)
 			if f.Path != "" {
 				fmt.Fprintf(&b, " (`%s`)", markdownCode(f.Path))
 			}
@@ -127,6 +127,22 @@ func renderMarkdown(r model.Report) []byte {
 	}
 	fmt.Fprintln(&b, "---\n\nAgentDiag reports configuration structure and key names only; credential values are intentionally excluded.")
 	return b.Bytes()
+}
+
+func terminalFindingLabel(f model.Finding) string {
+	sev := strings.ToUpper(string(f.Severity))
+	if f.Confidence == model.ConfidencePossible {
+		return sev + "/POSSIBLE"
+	}
+	return sev
+}
+
+func markdownFindingLabel(f model.Finding) string {
+	sev := strings.ToUpper(string(f.Severity))
+	if f.Confidence == model.ConfidencePossible {
+		return sev + " / POSSIBLE"
+	}
+	return sev
 }
 
 func markdownCode(s string) string { return strings.ReplaceAll(s, "`", "\\`") }

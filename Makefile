@@ -1,5 +1,5 @@
 BINARY=agentdiag
-VERSION=0.1.0
+VERSION=0.1.1
 
 .PHONY: test vet build release clean
 

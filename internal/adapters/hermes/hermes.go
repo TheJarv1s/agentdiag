@@ -44,7 +44,9 @@ func Scan(opts Options) model.AgentReport {
 	if fsx.Exists(r.ConfigPath) {
 		loaded, err := fsx.LoadYAML(r.ConfigPath)
 		if err != nil {
-			r.Findings = append(r.Findings, finding("hermes.config_invalid", model.SeverityError, "Hermes config.yaml could not be parsed.", r.ConfigPath, "Run `hermes config check` and repair the YAML.", false))
+			f := finding("hermes.config_unparsed", model.SeverityWarning, "AgentDiag could not fully parse Hermes config.yaml with its lightweight compatibility parser; this does not prove the config is invalid.", r.ConfigPath, "Validate with `hermes config check`; AgentDiag will skip checks that depend on parsed config values.", false)
+			f.Confidence = model.ConfidencePossible
+			r.Findings = append(r.Findings, f)
 		} else {
 			cfg = loaded
 			for _, keyPath := range fsx.SecretKeyPaths(cfg) {
@@ -58,7 +60,7 @@ func Scan(opts Options) model.AgentReport {
 		r.Findings = append(r.Findings, finding("hermes.config_missing", model.SeverityInfo, "Hermes home was found but config.yaml is missing.", r.ConfigPath, "Run `hermes setup` or `hermes config check`.", false))
 	}
 
-	r.Skills = scanSkills(filepath.Join(home, "skills"), &r.Findings)
+	r.Skills = scanSkills(home, cfg, &r.Findings)
 	r.Plugins = scanPlugins(filepath.Join(home, "plugins"), cfg, &r.Findings)
 	checkSkillSafety(cfg, &r.Findings)
 	checkEnvPermissions(filepath.Join(home, ".env"), &r.Findings)
@@ -72,29 +74,80 @@ func Scan(opts Options) model.AgentReport {
 	return r
 }
 
-func scanSkills(root string, findings *[]model.Finding) []model.SkillInfo {
-	files, err := fsx.FindSkillFiles(root, true)
-	if err != nil {
-		*findings = append(*findings, finding("hermes.skills_unreadable", model.SeverityError, "Hermes skills directory could not be scanned.", root, "Check filesystem permissions.", false))
-		return nil
-	}
+func scanSkills(home string, cfg map[string]any, findings *[]model.Finding) []model.SkillInfo {
+	roots := hermesSkillRoots(home, cfg)
 	seen := map[string]string{}
 	var out []model.SkillInfo
-	for _, path := range files {
-		meta, err := fsx.ParseSkill(path)
+	for i, root := range roots {
+		files, err := fsx.FindHermesSkillFiles(root)
 		if err != nil {
-			*findings = append(*findings, finding("hermes.skill_invalid", model.SeverityWarning, "A Hermes SKILL.md has invalid frontmatter.", path, "Repair the YAML frontmatter.", false))
+			*findings = append(*findings, finding("hermes.skills_unreadable", model.SeverityError, "Hermes skills directory could not be scanned.", root, "Check filesystem permissions.", false))
 			continue
 		}
-		key := strings.ToLower(meta.Name)
-		if prev, ok := seen[key]; ok {
-			*findings = append(*findings, finding("hermes.skill_duplicate", model.SeverityWarning, fmt.Sprintf("Duplicate Hermes skill name `%s` shadows another skill.", meta.Name), path, fmt.Sprintf("Rename one skill; first seen at %s.", prev), false))
-		} else {
-			seen[key] = path
+		source := "local"
+		if i > 0 {
+			source = "external"
 		}
-		out = append(out, model.SkillInfo{Name: meta.Name, Description: meta.Description, Path: path, Source: "user"})
+		for _, path := range files {
+			meta, err := fsx.ParseSkill(path)
+			if err != nil {
+				*findings = append(*findings, finding("hermes.skill_unreadable", model.SeverityWarning, "A Hermes SKILL.md could not be read.", path, "Check filesystem permissions and file encoding.", false))
+				continue
+			}
+			key := strings.ToLower(meta.Name)
+			if prev, ok := seen[key]; ok {
+				f := finding("hermes.skill_duplicate", model.SeverityWarning, fmt.Sprintf("Hermes skill name `%s` appears in multiple discoverable locations; one copy may take precedence.", meta.Name), path, fmt.Sprintf("Review both copies; first discovered at %s.", prev), false)
+				f.Confidence = model.ConfidencePossible
+				*findings = append(*findings, f)
+			} else {
+				seen[key] = path
+			}
+			out = append(out, model.SkillInfo{Name: meta.Name, Description: meta.Description, Path: path, Source: source})
+		}
 	}
 	return out
+}
+
+func hermesSkillRoots(home string, cfg map[string]any) []string {
+	local := filepath.Clean(filepath.Join(home, "skills"))
+	roots := []string{local}
+	seen := map[string]bool{strings.ToLower(local): true}
+	raw := fsx.ValueAt(cfg, "skills", "external_dirs")
+	var entries []string
+	switch x := raw.(type) {
+	case string:
+		entries = []string{x}
+	default:
+		entries = fsx.StringSlice(x)
+	}
+	for _, entry := range entries {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		expanded := os.ExpandEnv(entry)
+		if expanded == "~" || strings.HasPrefix(expanded, "~"+string(os.PathSeparator)) || strings.HasPrefix(expanded, "~/") || strings.HasPrefix(expanded, "~\\") {
+			if userHome, err := os.UserHomeDir(); err == nil {
+				rest := strings.TrimLeft(expanded[1:], "/\\")
+				expanded = filepath.Join(userHome, filepath.FromSlash(strings.ReplaceAll(rest, "\\", "/")))
+			}
+		}
+		if !filepath.IsAbs(expanded) {
+			expanded = filepath.Join(home, expanded)
+		}
+		abs, err := filepath.Abs(expanded)
+		if err != nil {
+			continue
+		}
+		abs = filepath.Clean(abs)
+		key := strings.ToLower(abs)
+		if seen[key] || !fsx.IsDir(abs) {
+			continue
+		}
+		seen[key] = true
+		roots = append(roots, abs)
+	}
+	return roots
 }
 
 func scanPlugins(root string, cfg map[string]any, findings *[]model.Finding) []model.PluginInfo {
@@ -124,7 +177,9 @@ func scanPlugins(root string, cfg map[string]any, findings *[]model.Finding) []m
 		}
 		name := e.Name()
 		if m, err := fsx.LoadYAML(manifest); err != nil {
-			*findings = append(*findings, finding("hermes.plugin_manifest_invalid", model.SeverityWarning, "A Hermes plugin.yaml could not be parsed.", manifest, "Repair the plugin manifest.", false))
+			f := finding("hermes.plugin_manifest_unparsed", model.SeverityWarning, "AgentDiag could not fully parse a Hermes plugin.yaml; the manifest may still be valid YAML.", manifest, "Validate the plugin with Hermes before changing the manifest.", false)
+			f.Confidence = model.ConfidencePossible
+			*findings = append(*findings, f)
 		} else if s, ok := m["name"].(string); ok && strings.TrimSpace(s) != "" {
 			name = strings.TrimSpace(s)
 		} else {
@@ -179,7 +234,7 @@ func makeSet(items []string) map[string]bool {
 	return out
 }
 func finding(id string, sev model.Severity, msg, path, remediation string, security bool) model.Finding {
-	return model.Finding{ID: id, Severity: sev, Message: msg, Path: path, Remediation: remediation, Security: security}
+	return model.Finding{ID: id, Severity: sev, Confidence: model.ConfidenceConfirmed, Message: msg, Path: path, Remediation: remediation, Security: security}
 }
 func severityRank(s model.Severity) int {
 	switch s {

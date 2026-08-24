@@ -18,7 +18,7 @@ AgentDiag answers that without starting the agent or executing third-party plugi
 - Inventories user/project/managed skills where applicable.
 - Inventories Hermes plugins and OMP runtime plugin state.
 - Counts native MCP server definitions and validates OMP MCP JSON.
-- Detects duplicate skill names and OMP nested skill layouts that native discovery ignores.
+- Detects duplicate skill names and OMP nested skill layouts that native discovery ignores, while marking heuristic findings as POSSIBLE instead of presenting them as confirmed failures.
 - Checks Hermes plugin enabled/disabled state.
 - Flags credential-like literals in YAML by **key path only**; values are never included in output.
 - Checks selected security-sensitive settings and Unix secret-file permissions.
@@ -82,7 +82,7 @@ or explicitly:
 ## Example
 
 ```text
-AgentDiag v0.1.0
+AgentDiag v0.1.1
 
 Hermes  [DETECTED]
   Home:    C:\Users\you\.hermes
@@ -90,7 +90,7 @@ Hermes  [DETECTED]
   Plugins: 5
   MCP:     4
   Findings: 2
-    [WARNING] hermes.skill_duplicate: Duplicate Hermes skill name `review` shadows another skill.
+    [WARNING/POSSIBLE] hermes.skill_duplicate: Hermes skill name `review` appears in multiple discoverable locations; one copy may take precedence.
     [INFO] hermes.plugin_not_enabled: Plugin `tool-slimmer` is installed but not enabled.
 
 OMP  [DETECTED]
@@ -126,6 +126,10 @@ Common overrides:
 
 The current directory is scanned as the project by default so project-local `.hermes` / `.omp` state can be diagnosed.
 
+## Diagnostic confidence
+
+AgentDiag distinguishes confirmed structural findings from heuristics. Terminal output marks heuristic findings as `POSSIBLE` (for example `[WARNING/POSSIBLE]`). The v0.1.1 parser intentionally fails open for SKILL.md frontmatter: unsupported YAML syntax is not labeled invalid merely because AgentDiag's lightweight parser cannot represent it.
+
 ## What v0.1 knows about Hermes
 
 AgentDiag inspects the Hermes home (normally `~/.hermes`):
@@ -137,7 +141,9 @@ skills/
 plugins/
 ```
 
-It understands `plugins.enabled`, `plugins.disabled`, `mcp_servers`, selected skill safety settings, plugin manifests and recursive Hermes skill trees.
+It understands `plugins.enabled`, `plugins.disabled`, `mcp_servers`, selected skill safety settings, plugin manifests and recursive Hermes skill trees. Hermes skill discovery pruning mirrors the current exclusion/support-directory rules and active `_org` mirror behavior; configured `skills.external_dirs` are included after the local skill root.
+
+Current limitation: v0.1.1 does not yet emulate Hermes trusted project-skill quarantine or every platform/environment offer-time filter, so the skill count is a **discoverable-file inventory**, not a promise that every listed skill is active in the current session.
 
 ## What v0.1 knows about OMP
 

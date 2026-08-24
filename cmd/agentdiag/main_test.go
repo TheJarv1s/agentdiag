@@ -55,7 +55,7 @@ func TestRunVersion(t *testing.T) {
 	if code := run([]string{"version"}, &out, &errOut); code != 0 {
 		t.Fatalf("code=%d", code)
 	}
-	if !strings.Contains(out.String(), "0.1.0") {
+	if !strings.Contains(out.String(), "0.1.1") {
 		t.Fatalf("output=%s", out.String())
 	}
 }

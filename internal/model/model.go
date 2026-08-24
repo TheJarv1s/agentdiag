@@ -4,6 +4,13 @@ import "time"
 
 type Severity string
 
+type Confidence string
+
+const (
+	ConfidenceConfirmed Confidence = "confirmed"
+	ConfidencePossible  Confidence = "possible"
+)
+
 const (
 	SeverityInfo    Severity = "info"
 	SeverityWarning Severity = "warning"
@@ -11,12 +18,13 @@ const (
 )
 
 type Finding struct {
-	ID          string   `json:"id"`
-	Severity    Severity `json:"severity"`
-	Message     string   `json:"message"`
-	Path        string   `json:"path,omitempty"`
-	Remediation string   `json:"remediation,omitempty"`
-	Security    bool     `json:"security,omitempty"`
+	ID          string     `json:"id"`
+	Severity    Severity   `json:"severity"`
+	Confidence  Confidence `json:"confidence,omitempty"`
+	Message     string     `json:"message"`
+	Path        string     `json:"path,omitempty"`
+	Remediation string     `json:"remediation,omitempty"`
+	Security    bool       `json:"security,omitempty"`
 }
 
 type SkillInfo struct {

@@ -27,3 +27,24 @@ func TestRenderJSONAndMarkdown(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderShowsPossibleConfidence(t *testing.T) {
+	r := fixture()
+	r.Agents[0].Findings[0].Confidence = model.ConfidencePossible
+
+	terminal, err := Render(r, FormatTerminal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(terminal), "[WARNING/POSSIBLE]") {
+		t.Fatalf("terminal did not expose possible confidence: %s", terminal)
+	}
+
+	markdown, err := Render(r, FormatMarkdown)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(markdown), "WARNING / POSSIBLE") {
+		t.Fatalf("markdown did not expose possible confidence: %s", markdown)
+	}
+}

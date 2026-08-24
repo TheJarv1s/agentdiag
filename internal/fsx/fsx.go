@@ -16,7 +16,7 @@ type SkillMeta struct {
 	Description string
 }
 
-var secretKeyPattern = regexp.MustCompile(`(?i)(api[_-]?key|token|secret|password|credential|private[_-]?key)`)
+var frontmatterFencePattern = regexp.MustCompile(`^---\s*$`)
 
 func Exists(path string) bool {
 	_, err := os.Stat(path)
@@ -233,19 +233,33 @@ func ParseSkill(path string) (SkillMeta, error) {
 		return SkillMeta{}, err
 	}
 	text := strings.ReplaceAll(string(b), "\r\n", "\n")
+	text = strings.TrimPrefix(text, "\ufeff")
 	meta := SkillMeta{Name: filepath.Base(filepath.Dir(path))}
-	if !strings.HasPrefix(text, "---\n") {
+	if !strings.HasPrefix(text, "---") {
 		return meta, nil
 	}
-	rest := text[4:]
-	end := strings.Index(rest, "\n---")
-	if end < 0 {
-		return SkillMeta{}, errors.New("unterminated YAML frontmatter")
+
+	lines := strings.Split(text, "\n")
+	if len(lines) == 0 || !frontmatterFencePattern.MatchString(lines[0]) {
+		return meta, nil
 	}
-	front := rest[:end]
-	raw, err := ParseYAML([]byte(front))
-	if err != nil {
-		return SkillMeta{}, fmt.Errorf("frontmatter: %w", err)
+	end := -1
+	for i := 1; i < len(lines); i++ {
+		if frontmatterFencePattern.MatchString(lines[i]) {
+			end = i
+			break
+		}
+	}
+	// Hermes fails open when frontmatter has no closing fence: the skill still
+	// exists and falls back to its directory name rather than being rejected.
+	if end < 0 {
+		return meta, nil
+	}
+
+	front := strings.Join(lines[1:end], "\n")
+	raw, parseErr := ParseYAML([]byte(front))
+	if parseErr != nil {
+		raw = parseFrontmatterFallback(front)
 	}
 	if name, ok := raw["name"].(string); ok && strings.TrimSpace(name) != "" {
 		meta.Name = strings.TrimSpace(name)
@@ -254,6 +268,122 @@ func ParseSkill(path string) (SkillMeta, error) {
 		meta.Description = strings.TrimSpace(desc)
 	}
 	return meta, nil
+}
+
+// parseFrontmatterFallback mirrors Hermes' fail-open behavior for skill
+// metadata. AgentDiag intentionally does not claim that a SKILL.md is invalid
+// merely because its tiny config YAML parser cannot represent every valid YAML
+// construct that PyYAML accepts. We only need top-level name/description here.
+func parseFrontmatterFallback(front string) map[string]any {
+	out := map[string]any{}
+	lines := strings.Split(front, "\n")
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
+		if strings.TrimSpace(line) == "" || strings.HasPrefix(strings.TrimSpace(line), "#") {
+			continue
+		}
+		indent := len(line) - len(strings.TrimLeft(line, " "))
+		if indent != 0 {
+			continue
+		}
+		key, value, ok := strings.Cut(strings.TrimSpace(line), ":")
+		if !ok {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+		if key == "" {
+			continue
+		}
+		if value == ">" || value == "|" {
+			style := value
+			var parts []string
+			for j := i + 1; j < len(lines); j++ {
+				next := lines[j]
+				if strings.TrimSpace(next) == "" {
+					parts = append(parts, "")
+					i = j
+					continue
+				}
+				nextIndent := len(next) - len(strings.TrimLeft(next, " "))
+				if nextIndent <= indent {
+					break
+				}
+				parts = append(parts, strings.TrimSpace(next))
+				i = j
+			}
+			if style == ">" {
+				out[key] = strings.TrimSpace(strings.Join(parts, " "))
+			} else {
+				out[key] = strings.TrimSpace(strings.Join(parts, "\n"))
+			}
+			continue
+		}
+		out[key] = parseYAMLScalar(value)
+	}
+	return out
+}
+
+var hermesExcludedSkillDirs = map[string]bool{
+	".git": true, ".github": true, ".hub": true, ".archive": true,
+	".venv": true, "venv": true, "node_modules": true, "site-packages": true,
+	"__pycache__": true, ".tox": true, ".nox": true, ".pytest_cache": true,
+	".mypy_cache": true, ".ruff_cache": true,
+}
+
+var hermesSkillSupportDirs = map[string]bool{
+	"references": true, "templates": true, "assets": true, "scripts": true,
+}
+
+// FindHermesSkillFiles follows the active Hermes skill index pruning rules:
+// VCS/dependency/cache trees are skipped, support packages below a real skill
+// root are not indexed as standalone skills, and only the active _org mirror
+// is traversed.
+func FindHermesSkillFiles(root string) ([]string, error) {
+	if !IsDir(root) {
+		return nil, nil
+	}
+	root = filepath.Clean(root)
+	orgRoot := filepath.Join(root, "_org")
+	activeOrg := ""
+	if b, err := os.ReadFile(filepath.Join(orgRoot, ".active_org")); err == nil {
+		activeOrg = strings.TrimSpace(string(b))
+	}
+
+	var out []string
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if path == root {
+				return nil
+			}
+			name := d.Name()
+			if hermesExcludedSkillDirs[name] {
+				return filepath.SkipDir
+			}
+			if path == orgRoot && activeOrg == "" {
+				return filepath.SkipDir
+			}
+			if filepath.Dir(path) == orgRoot && name != activeOrg {
+				return filepath.SkipDir
+			}
+			if hermesSkillSupportDirs[name] && Exists(filepath.Join(filepath.Dir(path), "SKILL.md")) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if strings.EqualFold(d.Name(), "SKILL.md") {
+			out = append(out, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(out)
+	return out, nil
 }
 
 func FindSkillFiles(root string, recursive bool) ([]string, error) {
@@ -293,6 +423,20 @@ func FindSkillFiles(root string, recursive bool) ([]string, error) {
 	return out, nil
 }
 
+func isSecretKeyName(key string) bool {
+	n := strings.ToLower(strings.TrimSpace(key))
+	n = strings.NewReplacer("-", "_", " ", "_").Replace(n)
+	suffixes := []string{
+		"api_key", "token", "secret", "password", "credential", "credentials", "private_key",
+	}
+	for _, suffix := range suffixes {
+		if n == suffix || strings.HasSuffix(n, "_"+suffix) {
+			return true
+		}
+	}
+	return false
+}
+
 func SecretKeyPaths(v any) []string {
 	var out []string
 	var walk func(any, string)
@@ -310,7 +454,7 @@ func SecretKeyPaths(v any) []string {
 				if prefix != "" {
 					path = prefix + "." + k
 				}
-				if secretKeyPattern.MatchString(k) && isLiteralSecret(val) {
+				if isSecretKeyName(k) && isLiteralSecret(val) {
 					out = append(out, path)
 				}
 				walk(val, path)
