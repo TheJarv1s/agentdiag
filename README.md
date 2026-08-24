@@ -1,33 +1,37 @@
 # AgentDiag
 
-**AgentDiag** is a read-only diagnostics CLI for AI-agent environments.
+[![CI](https://github.com/TheJarv1s/agentdiag/actions/workflows/ci.yml/badge.svg)](https://github.com/TheJarv1s/agentdiag/actions/workflows/ci.yml)
+[![Go](https://img.shields.io/badge/Go-1.22%2B-00ADD8?logo=go)](https://go.dev/)
+[![License](https://img.shields.io/github/license/TheJarv1s/agentdiag)](LICENSE)
 
-It detects **Hermes Agent** and **Oh My Pi (OMP)**, inventories skills/plugins/MCP configuration, catches common discovery/config/security problems, and can export a **sanitized support report** that is safe to attach to an issue.
+English | [Русский](README.ru.md)
 
-> v0.1 focuses on Hermes + OMP. The core is adapter-based so more agents can be added without rewriting the CLI.
+![AgentDiag diagnostics map](assets/agentdiag-social.png)
+
+**AgentDiag** is a read-only diagnostics CLI for AI-agent environments. It detects **Hermes Agent** and **Oh My Pi (OMP)**, inventories skills, plugins and MCP configuration, identifies common discovery/configuration/security problems, and exports sanitized support reports.
+
+**Current version:** 0.1.1 · **Platforms:** Windows, macOS, Linux · **Go:** 1.22+
+
+> AgentDiag never starts agent binaries or executes plugins, hooks, modules, or skills.
 
 ## Why
 
-AI-agent setups accumulate skills, plugins, MCP servers, project overrides and provider configuration across several directories. When something silently stops loading, the useful question is often not “is the file there?” but “will this agent actually discover it, is it enabled, and is the config valid?”
+Agent environments collect skills, plugins, MCP servers, project overrides, and provider configuration across several directories. When something stops loading, the question is not only whether a file exists: will the agent discover it, is it enabled, and is the configuration structurally valid?
 
-AgentDiag answers that without starting the agent or executing third-party plugin code.
+AgentDiag answers those questions without changing the environment it inspects.
 
-## v0.1 features
+## What it checks
 
-- Detects Hermes and OMP on Windows, macOS and Linux.
-- Inventories user/project/managed skills where applicable.
-- Inventories Hermes plugins and OMP runtime plugin state.
-- Counts native MCP server definitions and validates OMP MCP JSON.
-- Detects duplicate skill names and OMP nested skill layouts that native discovery ignores, while marking heuristic findings as POSSIBLE instead of presenting them as confirmed failures.
-- Checks Hermes plugin enabled/disabled state.
-- Flags credential-like literals in YAML by **key path only**; values are never included in output.
-- Checks selected security-sensitive settings and Unix secret-file permissions.
-- Exports terminal, JSON or Markdown reports.
-- Does **not** execute `hermes`, `omp`, plugins, hooks or skills.
+- Hermes and OMP detection on Windows, macOS, and Linux.
+- User, project, and managed skills where applicable.
+- Hermes plugins and OMP runtime plugin state.
+- Native MCP server definitions and OMP MCP JSON validity.
+- Duplicate skills and OMP nested layouts that native discovery ignores.
+- Hermes plugin enablement and selected security-sensitive settings.
+- Credential-like YAML literals by **key path only**—never the value.
+- Unix secret-file permissions, terminal output, and JSON/Markdown exports.
 
-## Quick start
-
-### Install with Go
+## Install
 
 ```bash
 go install github.com/TheJarv1s/agentdiag/cmd/agentdiag@latest
@@ -45,64 +49,31 @@ Windows PowerShell:
 go build -o agentdiag.exe ./cmd/agentdiag
 ```
 
-### Scan the current environment
+## Quick start
 
 ```bash
-./agentdiag
+agentdiag scan
+agentdiag doctor
+agentdiag security
+agentdiag export --format markdown --output agentdiag-report.md
 ```
 
-or explicitly:
+The current directory is the project by default, so project-local `.hermes` and `.omp` state is included.
+
+## Real safe demo
+
+The checked-in [safe demo fixture](examples/safe-demo/README.md) contains no credentials or personal paths. Run it from the repository root:
 
 ```bash
-./agentdiag scan
+go run ./cmd/agentdiag scan \
+  --project ./examples/safe-demo/project \
+  --hermes-home ./examples/safe-demo/hermes \
+  --omp-home ./examples/safe-demo/omp
 ```
 
-### Full diagnostic view
+![Terminal output from the reproducible safe demo](assets/agentdiag-terminal-demo.svg)
 
-```bash
-./agentdiag doctor
-```
-
-### Security findings only
-
-```bash
-./agentdiag security
-```
-
-### Export a sanitized report
-
-```bash
-./agentdiag export --format markdown --output agentdiag-report.md
-```
-
-```bash
-./agentdiag export --format json --output agentdiag-report.json
-```
-
-## Example
-
-```text
-AgentDiag v0.1.1
-
-Hermes  [DETECTED]
-  Home:    C:\Users\you\.hermes
-  Skills:  18
-  Plugins: 5
-  MCP:     4
-  Findings: 2
-    [WARNING/POSSIBLE] hermes.skill_duplicate: Hermes skill name `review` appears in multiple discoverable locations; one copy may take precedence.
-    [INFO] hermes.plugin_not_enabled: Plugin `tool-slimmer` is installed but not enabled.
-
-OMP  [DETECTED]
-  Home:    C:\Users\you\.omp
-  Skills:  27
-  Plugins: 8
-  MCP:     6
-  Findings: 1
-    [WARNING] omp.skill_nested_ignored: Nested OMP skill layout is outside native provider discovery depth and will be ignored.
-
-Summary: 0 error(s), 2 warning(s), 1 info
-```
+The screenshot is generated from that command; its paths are replaced with `<demo>` only for publication. See the [sanitized captured output](examples/safe-demo/terminal-output.txt).
 
 ## CLI
 
@@ -124,44 +95,15 @@ Common overrides:
 --format terminal|json|markdown
 ```
 
-The current directory is scanned as the project by default so project-local `.hermes` / `.omp` state can be diagnosed.
+## Diagnostic confidence and scope
 
-## Diagnostic confidence
+AgentDiag distinguishes confirmed structural findings from heuristics. Heuristics appear as `POSSIBLE` (for example, `[WARNING/POSSIBLE]`). The v0.1.1 parser intentionally fails open for `SKILL.md` frontmatter: unsupported YAML syntax is not labeled invalid merely because the lightweight parser cannot represent it.
 
-AgentDiag distinguishes confirmed structural findings from heuristics. Terminal output marks heuristic findings as `POSSIBLE` (for example `[WARNING/POSSIBLE]`). The v0.1.1 parser intentionally fails open for SKILL.md frontmatter: unsupported YAML syntax is not labeled invalid merely because AgentDiag's lightweight parser cannot represent it.
+For Hermes, AgentDiag understands `plugins.enabled`, `plugins.disabled`, `mcp_servers`, selected skill-safety settings, plugin manifests, recursive skill trees, active `_org` mirrors, and configured `skills.external_dirs`.
 
-## What v0.1 knows about Hermes
+For OMP, AgentDiag inspects the user layer (normally `~/.omp/agent`) and the current project `.omp` layer, including skills, managed skills, MCP files, and runtime plugin state. `PI_CODING_AGENT_DIR` and existing XDG OMP plugin data are recognized.
 
-AgentDiag inspects the Hermes home (normally `~/.hermes`):
-
-```text
-config.yaml
-.env
-skills/
-plugins/
-```
-
-It understands `plugins.enabled`, `plugins.disabled`, `mcp_servers`, selected skill safety settings, plugin manifests and recursive Hermes skill trees. Hermes skill discovery pruning mirrors the current exclusion/support-directory rules and active `_org` mirror behavior; configured `skills.external_dirs` are included after the local skill root.
-
-Current limitation: v0.1.1 does not yet emulate Hermes trusted project-skill quarantine or every platform/environment offer-time filter, so the skill count is a **discoverable-file inventory**, not a promise that every listed skill is active in the current session.
-
-## What v0.1 knows about OMP
-
-AgentDiag inspects the OMP user layer (normally `~/.omp/agent`) and current project `.omp` layer, including:
-
-```text
-~/.omp/agent/config.yml
-~/.omp/agent/skills/*/SKILL.md
-~/.omp/agent/managed-skills/*/SKILL.md
-~/.omp/agent/mcp.json
-~/.omp/plugins/omp-plugins.lock.json
-~/.omp/plugins/installed_plugins.json
-<project>/.omp/skills/*/SKILL.md
-<project>/.omp/mcp.json
-<project>/.omp/plugins/...
-```
-
-`PI_CODING_AGENT_DIR` is honored for the active user agent directory. Existing XDG OMP plugin data is also recognized.
+Current limitation: v0.1.1 inventories discoverable Hermes skill files. It does not emulate every trusted-project quarantine or platform/environment filter, so a listed skill is not a promise that it is active in the current session.
 
 ## Privacy and security
 
@@ -172,38 +114,29 @@ AgentDiag is intentionally conservative:
 - no plugin/module execution;
 - no `.env` value parsing;
 - no credential values in generated reports;
-- literal-secret detection reports only a dotted key path such as `providers.demo.api_key`.
+- literal-secret detection reports only a key path such as `providers.demo.api_key`.
 
-Please still review a report before publishing it: paths and plugin/skill names can themselves reveal project or username information.
+Review a report before publishing it: paths and plugin/skill names can themselves reveal a project or username. See [SECURITY.md](SECURITY.md) for the project security policy and guarantees.
 
-## Development
+## Development and releases
 
 ```bash
 go test ./...
 go vet ./...
+go build -trimpath ./cmd/agentdiag
 ```
 
-Release builds:
-
-```bash
-make release
-```
-
-Artifacts are written to `dist/`.
-
-## Repository
-
-Source: `github.com/TheJarv1s/agentdiag`
-
-Go module: `github.com/TheJarv1s/agentdiag`
+Release builds are emitted into `dist/` by `make release`. The v0.1.1 release notes, asset plan, GitHub metadata, and promotion drafts are in [docs/launch](docs/launch/).
 
 ## Roadmap
 
-- **v0.2:** Claude Code, Codex and OpenCode adapters.
-- **v0.2:** context/token overhead estimates.
-- **v0.2:** deeper OMP marketplace consistency checks (registry ↔ runtime lock ↔ node_modules).
-- **v0.3:** machine-readable check registry and GitHub Actions mode.
-- **v0.3:** optional `--fix-plan` that suggests changes without applying them.
+- **v0.2:** Claude Code, Codex, and OpenCode adapters.
+- **v0.2:** context/token overhead estimates and deeper OMP marketplace checks.
+- **v0.3:** a machine-readable check registry, GitHub Actions mode, and an optional `--fix-plan` that suggests changes without applying them.
+
+## Contributing
+
+Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md); adapters must remain read-only and must not execute third-party code.
 
 ## License
 

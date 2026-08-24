@@ -1,0 +1,6 @@
+{
+  "plugins": {
+    "safe-viewer": { "enabled": true },
+    "status-panel": { "enabled": false }
+  }
+}

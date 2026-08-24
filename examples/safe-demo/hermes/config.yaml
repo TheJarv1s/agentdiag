@@ -1,0 +1,9 @@
+plugins:
+  enabled:
+    - inventory-viewer
+mcp_servers:
+  filesystem:
+    command: npx
+skills:
+  guard_agent_created: true
+  write_approval: true

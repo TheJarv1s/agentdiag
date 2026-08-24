@@ -2,6 +2,8 @@
 
 All notable changes to AgentDiag are documented here.
 
+## [Unreleased]
+
 ## [0.1.1] - 2026-08-25
 
 ### Fixed

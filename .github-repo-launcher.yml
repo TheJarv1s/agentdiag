@@ -1,0 +1,38 @@
+version: 1
+
+languages:
+  primary: en
+  secondary:
+    - ru
+
+readme:
+  mode: smart-merge
+
+visuals:
+  screenshots: auto
+  banner: true
+  social_preview: true
+  gif: auto
+
+desktop:
+  computer_use: true
+  fallback: ask-user
+
+github:
+  description: auto
+  topics: auto
+  topics_max: 10
+
+ci:
+  mode: smart
+
+release:
+  mode: smart
+  semver: suggest
+
+promotion:
+  generate: true
+  publish: false
+
+safety:
+  require_publish_confirmation: true

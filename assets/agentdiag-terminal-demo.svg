@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1120" viewBox="0 0 1400 1120" role="img" aria-labelledby="title desc">
+  <title id="title">AgentDiag v0.1.1 terminal demo</title>
+  <desc id="desc">A sanitized terminal capture from the reproducible safe demo fixture.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#0c121a"/><stop offset="1" stop-color="#081015"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="16" stdDeviation="18" flood-opacity=".35"/></filter>
+  </defs>
+  <rect width="1400" height="1120" rx="24" fill="#05080b"/>
+  <g filter="url(#shadow)">
+    <rect x="28" y="28" width="1344" height="1064" rx="17" fill="url(#bg)" stroke="#263744"/>
+    <path d="M28 105h1344" stroke="#263744"/>
+    <circle cx="65" cy="67" r="9" fill="#ff665c"/><circle cx="94" cy="67" r="9" fill="#f4be4f"/><circle cx="123" cy="67" r="9" fill="#41c875"/>
+    <text x="700" y="73" text-anchor="middle" fill="#91a3b0" font-family="Segoe UI, Arial, sans-serif" font-size="18">agentdiag · safe demo</text>
+  </g>
+  <g font-family="Cascadia Mono, Consolas, monospace" font-size="17" xml:space="preserve">
+    <text x="62" y="145" fill="#f1f5f8">AgentDiag v0.1.1</text>
+    <text x="62" y="174" fill="#b5c4ce">Project: &lt;demo&gt;\project</text>
+
+    <text x="62" y="232" fill="#f1f5f8">Hermes  </text><text x="151" y="232" fill="#4ade80">[DETECTED]</text>
+    <text x="62" y="261" fill="#b5c4ce">  Home:    &lt;demo&gt;\hermes</text>
+    <text x="62" y="290" fill="#b5c4ce">  Config:  &lt;demo&gt;\hermes\config.yaml</text>
+    <text x="62" y="319" fill="#b5c4ce">  Skills:  2</text><text x="252" y="319" fill="#b5c4ce">Plugins: 2</text><text x="455" y="319" fill="#b5c4ce">MCP: 1</text>
+    <text x="62" y="348" fill="#b5c4ce">  Findings: 2</text>
+    <text x="62" y="377" fill="#fbbf24">    [WARNING/POSSIBLE]</text><text x="284" y="377" fill="#e4edf3"> hermes.skill_duplicate: Hermes skill name `health` appears in multiple discoverable locations;</text>
+    <text x="62" y="406" fill="#e4edf3">      one copy may take precedence. (&lt;demo&gt;\hermes\skills\health\SKILL.md)</text>
+    <text x="62" y="435" fill="#8ca1af">      Fix: Review both copies; first discovered at &lt;demo&gt;\hermes\skills\archive\health-copy\SKILL.md.</text>
+    <text x="62" y="464" fill="#60a5fa">    [INFO]</text><text x="136" y="464" fill="#e4edf3"> hermes.plugin_not_enabled: Plugin `archived-helper` is installed but not enabled.</text>
+    <text x="62" y="493" fill="#8ca1af">      Fix: Enable it with `hermes plugins enable archived-helper` if trusted and needed.</text>
+
+    <text x="62" y="551" fill="#f1f5f8">OMP  </text><text x="115" y="551" fill="#4ade80">[DETECTED]</text>
+    <text x="62" y="580" fill="#b5c4ce">  Home:    &lt;demo&gt;\omp</text>
+    <text x="62" y="609" fill="#b5c4ce">  Config:  &lt;demo&gt;\omp\agent\config.yml</text>
+    <text x="62" y="638" fill="#b5c4ce">  Skills:  2</text><text x="252" y="638" fill="#b5c4ce">Plugins: 2</text><text x="455" y="638" fill="#b5c4ce">MCP: 1</text>
+    <text x="62" y="667" fill="#b5c4ce">  Findings: 1</text>
+    <text x="62" y="696" fill="#fbbf24">    [WARNING]</text><text x="174" y="696" fill="#e4edf3"> omp.skill_nested_ignored: Nested OMP skill layout is outside native provider discovery depth</text>
+    <text x="62" y="725" fill="#e4edf3">      and will be ignored. (&lt;demo&gt;\omp\agent\skills\archive\nested\SKILL.md)</text>
+    <text x="62" y="754" fill="#8ca1af">      Fix: Move the skill to `&lt;skills-root&gt;/&lt;skill-name&gt;/SKILL.md` or configure the nested parent explicitly.</text>
+
+    <path d="M62 806h1248" stroke="#263744"/>
+    <text x="62" y="851" fill="#f1f5f8">Summary: </text><text x="174" y="851" fill="#4ade80">0 error(s)</text><text x="282" y="851" fill="#b5c4ce">, </text><text x="302" y="851" fill="#fbbf24">2 warning(s)</text><text x="428" y="851" fill="#b5c4ce">, </text><text x="448" y="851" fill="#60a5fa">1 info</text>
+  </g>
+  <text x="62" y="1040" fill="#718390" font-family="Segoe UI, Arial, sans-serif" font-size="17">Reproducible fixture · paths sanitized for publication · AgentDiag does not execute agents or plugins</text>
+</svg>

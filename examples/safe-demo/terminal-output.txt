@@ -1,0 +1,26 @@
+AgentDiag v0.1.1
+Project: <demo>\project
+
+Hermes  [DETECTED]
+  Home:    <demo>\hermes
+  Config:  <demo>\hermes\config.yaml
+  Skills:  2
+  Plugins: 2
+  MCP:     1
+  Findings: 2
+    [WARNING/POSSIBLE] hermes.skill_duplicate: Hermes skill name `health` appears in multiple discoverable locations; one copy may take precedence. (<demo>\hermes\skills\health\SKILL.md)
+      Fix: Review both copies; first discovered at <demo>\hermes\skills\archive\health-copy\SKILL.md.
+    [INFO] hermes.plugin_not_enabled: Plugin `archived-helper` is installed but not enabled. (<demo>\hermes\plugins\archived-helper)
+      Fix: Enable it with `hermes plugins enable archived-helper` if trusted and needed.
+
+OMP  [DETECTED]
+  Home:    <demo>\omp
+  Config:  <demo>\omp\agent\config.yml
+  Skills:  2
+  Plugins: 2
+  MCP:     1
+  Findings: 1
+    [WARNING] omp.skill_nested_ignored: Nested OMP skill layout is outside native provider discovery depth and will be ignored. (<demo>\omp\agent\skills\archive\nested\SKILL.md)
+      Fix: Move the skill to `<skills-root>/<skill-name>/SKILL.md` or configure the nested parent explicitly.
+
+Summary: 0 error(s), 2 warning(s), 1 info
