@@ -10,7 +10,7 @@ Read-only diagnostics CLI for Hermes Agent and Oh My Pi (OMP): inventory skills,
 
 ## Social preview
 
-Upload [`assets/agentdiag-social-preview.png`](../../assets/agentdiag-social-preview.png) in the repository social-preview settings. It is intentionally text-free so GitHub can render repository metadata cleanly beside it.
+Upload [`assets/agentdiag-social-preview.jpg`](../../assets/agentdiag-social-preview.jpg) in the repository social-preview settings. This 1280×640 JPEG is intentionally text-free and below GitHub's 1 MB upload limit.
 
 ## Scope of the eventual metadata update
 
